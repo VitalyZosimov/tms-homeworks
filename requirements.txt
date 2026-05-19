@@ -1,0 +1,6 @@
+apache-airflow==2.10.5
+apache-airflow-providers-postgres==5.13.0
+apache-airflow-providers-clickhouse==4.0.0
+pandas==2.1.4
+requests==2.31.0
+python-dotenv==1.0.0
