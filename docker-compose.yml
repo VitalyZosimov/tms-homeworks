@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: raw_data
+      POSTGRES_USER: etl_user
+      POSTGRES_PASSWORD: 123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  etl-scheduler:
+    build: .
+    depends_on:
+      - postgres
+      - clickhouse
+    environment:
+      PG_HOST: postgres
+      CH_HOST: clickhouse
+    network_mode: bridge
+
+volumes:
+  postgres_data:
+  clickhouse_data:
