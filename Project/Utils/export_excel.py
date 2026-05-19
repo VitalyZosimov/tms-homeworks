@@ -14,9 +14,15 @@ def export_to_excel(connection, export_dir="Excel/export"):
             print(f"Ошибка создания папки {export_path}: {e}")
             return
 
-        # Получаем список всех таблиц
+        # Получаем список всех таблиц 
         try:
-            tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table';", connection)["name"].tolist()
+            query = """
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+                AND table_type = 'BASE TABLE'
+            """
+            tables = pd.read_sql(query, connection)["table_name"].tolist()
         except Exception as e:
             print(f"Ошибка получения списка таблиц: {e}")
             return
@@ -24,7 +30,7 @@ def export_to_excel(connection, export_dir="Excel/export"):
         for table in tables:
             try:
                 # Загружаем таблицу в DataFrame
-                df = pd.read_sql(f"SELECT * FROM {table}", connection)
+                df = pd.read_sql(f'SELECT * FROM "{table}"', connection)
 
                 # Формируем путь к файлу
                 file_path = os.path.join(export_path, f"{table}.xlsx")
@@ -39,9 +45,9 @@ def export_to_excel(connection, export_dir="Excel/export"):
             except PermissionError as e:
                 print(f"Нет прав на запись файла {file_path}: {e}")
             except ImportError as e:
-                print(f"Ошибка импорта openpyxl: {e}. Установите: pip install openpyxl")
+                print(f" Ошибка импорта openpyxl: {e}. Установите: pip install openpyxl")
             except Exception as e:
-                print(f"Непредвиденная ошибка при обработке таблицы {table}: {e}")
+                print(f" Непредвиденная ошибка при обработке таблицы {table}: {e}")
 
     except Exception as e:
         print(f"Критическая ошибка в export_to_excel: {e}")
