@@ -1,13 +1,13 @@
 import sys
 import os
 
-# Добавляем путь к Utils для импортов
+# Добавляем путь к модулям
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from connect import get_connection
-    from Utils.export_excel import export_to_excel
-    from Utils.export_csv import export_to_csv
+    from export_excel import export_to_excel
+    from export_csv import export_to_csv
     from report import generate_report
 except ImportError as e:
     print(f"Ошибка импорта модулей: {e}")
@@ -21,7 +21,7 @@ def main():
     try:
         conn = get_connection()
         if conn is None:
-            print("❌ Не удалось подключиться к базе данных")
+            print(" Не удалось подключиться к базе данных")
             return
         print("Подключение к БД установлено")
     except Exception as e:
