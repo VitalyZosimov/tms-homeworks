@@ -1,25 +1,46 @@
 import os
 import pandas as pd
+import sqlite3
 
 def export_to_csv(connection, export_dir="CSV/export"):
-		# Определяем корневую папку проекта
-		root_dir = os.path.dirname(os.path.abspath(__file__))
-		export_path = os.path.join(root_dir, "..", export_dir)
+    try:
+        # Определяем корневую папку проекта
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        export_path = os.path.join(root_dir, "..", export_dir)
 
-		# Создаём папку, если её нет
-		os.makedirs(export_path, exist_ok=True)
+        # Создаём папку, если её нет
+        try:
+            os.makedirs(export_path, exist_ok=True)
+        except OSError as e:
+            print(f"Ошибка создания папки {export_path}: {e}")
+            return
 
-		# Получаем список всех таблиц
-		tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table';", connection)["name"].tolist()
+        # Получаем список всех таблиц
+        try:
+            tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table';", connection)["name"].tolist()
+        except Exception as e:
+            print(f"Ошибка получения списка таблиц: {e}")
+            return
 
-		for table in tables:
-			# Загружаем таблицу в DataFrame
-			df = pd.read_sql(f"SELECT * FROM {table}", connection)
+        for table in tables:
+            try:
+                # Загружаем таблицу в DataFrame
+                df = pd.read_sql(f"SELECT * FROM {table}", connection)
 
-			# Формируем путь к файлу
-			file_path = os.path.join(export_path, f"{table}.csv")
+                # Формируем путь к файлу
+                file_path = os.path.join(export_path, f"{table}.csv")
 
-			# Сохраняем таблицу в отдельный CSV‑файл
-			df.to_csv(file_path, index=False, encoding="utf-8")
+                # Сохраняем таблицу в отдельный CSV‑файл
+                df.to_csv(file_path, index=False, encoding="utf-8")
 
-		print(f"Таблица {table} сохранена в {file_path}")
+                print(f"Таблица {table} сохранена в {file_path}")
+
+            except pd.errors.DatabaseError as e:
+                print(f"Ошибка чтения таблицы {table}: {e}")
+            except PermissionError as e:
+                print(f"Нет прав на запись файла {file_path}: {e}")
+            except Exception as e:
+                print(f"Непредвиденная ошибка при обработке таблицы {table}: {e}")
+
+    except Exception as e:
+        print(f"Критическая ошибка в export_to_csv: {e}")
