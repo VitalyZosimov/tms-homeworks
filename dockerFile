@@ -1,0 +1,46 @@
+FROM python:3.11-slim
+
+# Установка cron и curl (для проверки здоровья контейнера)
+RUN apt-get update && apt-get install -y \
+    cron \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Установка рабочей директории
+WORKDIR /app
+
+# Копирование файла зависимостей
+COPY requirements.txt .
+
+# Установка Python-зависимостей
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копирование всех скриптов
+COPY extract_and_load.py .
+COPY transform_and_load.py .
+COPY run_etl.py .
+
+# Копирование файла с переменными окружения (опционально)
+COPY .env .
+
+# Создание директории для логов
+RUN mkdir -p /var/log/etl
+
+# Скрипт для ручного запуска ETL
+RUN echo '#!/bin/bash\ncd /app && /usr/local/bin/python /app/run_etl.py >> /var/log/etl/manual_run.log 2>&1' > /app/manual_run.sh && chmod +x /app/manual_run.sh
+
+# Настройка cron для ежедневного запуска в 2:00 ночи
+RUN echo "# ETL Pipeline Daily Run" > /etc/cron.d/etl-cron
+RUN echo "0 2 * * * root cd /app && /usr/local/bin/python /app/run_etl.py >> /var/log/etl/cron.log 2>&1" >> /etc/cron.d/etl-cron
+RUN chmod 0644 /etc/cron.d/etl-cron
+RUN crontab /etc/cron.d/etl-cron
+
+# Создание файла логов
+RUN touch /var/log/etl/cron.log && chmod 666 /var/log/etl/cron.log
+
+# Проверка подключения к PostgreSQL и ClickHouse перед запуском
+COPY healthcheck.sh /app/healthcheck.sh
+RUN chmod +x /app/healthcheck.sh
+
+# Запуск cron и вывод логов
+CMD cron && tail -f /var/log/etl/cron.log
