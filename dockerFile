@@ -1,31 +1,46 @@
-# Используем официальный образ Airflow
-FROM apache/airflow:2.10.5-python3.11
+FROM python:3.11-slim
 
-# Переключаемся на root для установки системных пакетов
-USER root
-
-# Установка curl для healthcheck и других полезных утилит
+# Установка cron и curl (для проверки здоровья контейнера)
 RUN apt-get update && apt-get install -y \
+    cron \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Возвращаемся к пользователю airflow
-USER airflow
+# Установка рабочей директории
+WORKDIR /app
 
-# Копируем файл с зависимостями
-COPY requirements.txt /requirements.txt
+# Копирование файла зависимостей
+COPY requirements.txt .
 
-# Устанавливаем Python зависимости
-RUN pip install --no-cache-dir -r /requirements.txt
+# Установка Python-зависимостей
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем DAG'и
-COPY ./dags /opt/airflow/dags
+# Копирование всех скриптов
+COPY extract_and_load.py .
+COPY transform_and_load.py .
+COPY run_etl.py .
 
-# Копируем .env файл (опционально)
-COPY .env /opt/airflow/.env
+# Копирование файла с переменными окружения (опционально)
+COPY .env .
 
-# Отключаем примеры DAG'ов (для чистоты)
-ENV AIRFLOW__CORE__LOAD_EXAMPLES=False
+# Создание директории для логов
+RUN mkdir -p /var/log/etl
 
-# Эту команду можно переопределить при запуске контейнера
-CMD ["airflow", "webserver"]
+# Скрипт для ручного запуска ETL
+RUN echo '#!/bin/bash\ncd /app && /usr/local/bin/python /app/run_etl.py >> /var/log/etl/manual_run.log 2>&1' > /app/manual_run.sh && chmod +x /app/manual_run.sh
+
+# Настройка cron для ежедневного запуска в 2:00 ночи
+RUN echo "# ETL Pipeline Daily Run" > /etc/cron.d/etl-cron
+RUN echo "0 2 * * * root cd /app && /usr/local/bin/python /app/run_etl.py >> /var/log/etl/cron.log 2>&1" >> /etc/cron.d/etl-cron
+RUN chmod 0644 /etc/cron.d/etl-cron
+RUN crontab /etc/cron.d/etl-cron
+
+# Создание файла логов
+RUN touch /var/log/etl/cron.log && chmod 666 /var/log/etl/cron.log
+
+# Проверка подключения к PostgreSQL и ClickHouse перед запуском
+COPY healthcheck.sh /app/healthcheck.sh
+RUN chmod +x /app/healthcheck.sh
+
+# Запуск cron и вывод логов
+CMD cron && tail -f /var/log/etl/cron.log
