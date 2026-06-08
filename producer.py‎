@@ -1,0 +1,41 @@
+from confluent_kafka import Producer
+import json
+import random
+from datetime import datetime, timezone
+import time
+
+conf = {
+	'bootstrap.servers': 'localhost:9092'
+}
+
+producer = Producer(conf)
+def generate_event():
+	return {
+		'user_id': random.randint(1,100),
+		'event': random.choice(['login','logout']),
+		'timestamp': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+	}
+
+def delivery_report(err,msg):
+		if err:
+			print(f'Ошибка {err}')
+		else:
+			print(f'Отправлено: {msg.key()} -> {msg.value().decode("utf-8")}')
+
+
+while (True):
+	event = generate_event()
+	key = str(event['user_id'])
+	value = json.dumps(event).encode('utf-8')
+
+	producer.produce(
+		'user_events',
+		key = key,
+		value = value,
+		callback = delivery_report
+	)
+	producer.poll(0)
+# Просто для теста
+	time.sleep(1)
+
+	producer.flush()
